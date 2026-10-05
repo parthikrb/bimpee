@@ -1,0 +1,374 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Static synthwave tokens + `--world-*` variables that are
+ * rewritten at runtime from the current WorldSpec palette (see lib/palette.ts).
+ */
+:root {
+  --ink: #07021a;
+  --ink-2: #120634;
+  --ink-3: #1d0b4a;
+  --text: #f4f1ff;
+  --muted: #a99fd6;
+  --line: rgb(255 255 255 / 0.12);
+  --neon-pink: #ff2bd6;
+  --neon-cyan: #00f0ff;
+  --neon-sun: #ffd23f;
+  --danger: #ff3b5c;
+  --boon: #3bffb0;
+  --epic: #c77dff;
+  --rare: #4cc9f0;
+
+  /* runtime world palette (defaults = title screen) */
+  --world-bg: #07021a;
+  --world-floor: #1a0b3d;
+  --world-wall: #ff2bd6;
+  --world-accent: #00f0ff;
+  --world-glow: #ff2bd6;
+  --world-player: #f8f8ff;
+  /* accent guaranteed legible on dark panels */
+  --world-accent-text: #00f0ff;
+
+  --hud-pad: max(12px, env(safe-area-inset-top));
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-pink: var(--neon-pink);
+  --color-cyan: var(--neon-cyan);
+  --color-sun: var(--neon-sun);
+  --color-danger: var(--danger);
+  --color-boon: var(--boon);
+  --color-epic: var(--epic);
+  --color-rare: var(--rare);
+  --color-accent: var(--world-accent);
+  --color-accent-text: var(--world-accent-text);
+  --color-glow: var(--world-glow);
+  --color-wall: var(--world-wall);
+  --color-world: var(--world-bg);
+  --font-display: "Orbitron", "Arial Black", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :focus-visible {
+    outline: 2px solid var(--neon-cyan);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  ::selection {
+    background: var(--neon-pink);
+    color: var(--ink);
+  }
+}
+
+@layer components {
+  /* Animated synthwave backdrop: sun + perspective grid. */
+  .synth-bg {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 70% at 50% 110%, color-mix(in oklab, var(--world-glow) 35%, transparent), transparent 60%),
+      linear-gradient(180deg, var(--ink) 0%, var(--ink-2) 55%, color-mix(in oklab, var(--world-glow) 22%, var(--ink-2)) 100%);
+    z-index: 0;
+  }
+  .synth-sun {
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    width: min(56vmin, 460px);
+    aspect-ratio: 1;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: linear-gradient(180deg, var(--neon-sun) 0%, var(--neon-pink) 70%);
+    --sun-mask: linear-gradient(
+      180deg,
+      #000 0 52%,
+      transparent 52% 55%,
+      #000 55% 64%,
+      transparent 64% 68%,
+      #000 68% 75%,
+      transparent 75% 80%,
+      #000 80% 85%,
+      transparent 85% 91%,
+      #000 91% 94%,
+      transparent 94%
+    );
+    -webkit-mask: var(--sun-mask);
+    mask: var(--sun-mask);
+    filter: drop-shadow(0 0 40px color-mix(in oklab, var(--neon-pink) 60%, transparent));
+    opacity: 0.85;
+  }
+  .synth-grid {
+    position: absolute;
+    left: -50%;
+    right: -50%;
+    bottom: -10%;
+    height: 55%;
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--world-accent) 55%, transparent) 2px, transparent 2px),
+      linear-gradient(90deg, color-mix(in oklab, var(--world-accent) 55%, transparent) 2px, transparent 2px);
+    background-size: 64px 64px;
+    transform: perspective(380px) rotateX(62deg);
+    transform-origin: 50% 0;
+    animation: grid-scroll 1.6s linear infinite;
+    -webkit-mask: linear-gradient(180deg, transparent 0%, #000 35%);
+    mask: linear-gradient(180deg, transparent 0%, #000 35%);
+  }
+  .synth-horizon {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 45%;
+    height: 2px;
+    background: var(--world-accent);
+    box-shadow: 0 0 24px 4px var(--world-accent);
+    opacity: 0.6;
+  }
+  .scanlines::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(180deg, rgb(0 0 0 / 0.18) 0 1px, transparent 1px 3px);
+    mix-blend-mode: multiply;
+    z-index: 60;
+  }
+
+  .chrome-text {
+    background: linear-gradient(180deg, #ffffff 0%, #c9f6ff 38%, #6b3cff 52%, #ff2bd6 64%, #ffd23f 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 2px 0 rgb(0 0 0 / 0.6)) drop-shadow(0 0 18px color-mix(in oklab, var(--neon-pink) 55%, transparent));
+  }
+  .neon-text {
+    color: var(--world-accent-text);
+    text-shadow:
+      0 0 8px color-mix(in oklab, var(--world-accent) 70%, transparent),
+      0 0 22px color-mix(in oklab, var(--world-glow) 45%, transparent);
+  }
+
+  .panel {
+    background: color-mix(in oklab, var(--ink-2) 78%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    backdrop-filter: blur(10px) saturate(1.2);
+    -webkit-backdrop-filter: blur(10px) saturate(1.2);
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.4),
+      0 18px 50px -20px rgb(0 0 0 / 0.8);
+  }
+  .panel-glow {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--world-accent) 35%, transparent),
+      0 0 30px -6px color-mix(in oklab, var(--world-glow) 55%, transparent),
+      0 18px 50px -20px rgb(0 0 0 / 0.8);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    min-height: 44px;
+    padding: 0.65rem 1.15rem;
+    border-radius: 12px;
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 0.82rem;
+    transition:
+      transform 120ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease;
+    user-select: none;
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px) scale(0.985);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+  }
+  .btn-primary {
+    color: #12001f;
+    background: linear-gradient(180deg, #fff27a 0%, var(--neon-sun) 30%, #ff8a3d 100%);
+    box-shadow:
+      0 0 0 2px #12001f,
+      0 0 0 4px var(--neon-sun),
+      0 0 28px 2px color-mix(in oklab, var(--neon-sun) 60%, transparent);
+  }
+  .btn-primary:hover:not(:disabled) {
+    box-shadow:
+      0 0 0 2px #12001f,
+      0 0 0 4px #fff27a,
+      0 0 42px 6px color-mix(in oklab, var(--neon-sun) 70%, transparent);
+  }
+  .btn-neon {
+    color: var(--text);
+    background: color-mix(in oklab, var(--world-accent) 12%, var(--ink-2));
+    border: 1.5px solid color-mix(in oklab, var(--world-accent) 70%, transparent);
+    box-shadow: 0 0 18px -6px var(--world-accent);
+  }
+  .btn-neon:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--world-accent) 22%, var(--ink-2));
+    box-shadow: 0 0 26px -4px var(--world-accent);
+  }
+  .btn-ghost {
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--text);
+    border-color: rgb(255 255 255 / 0.3);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    border: 1px solid var(--line);
+    background: rgb(255 255 255 / 0.04);
+    white-space: nowrap;
+  }
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4em;
+    height: 1.4em;
+    padding: 0 0.3em;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 0.72em;
+    border: 1px solid rgb(255 255 255 / 0.25);
+    border-bottom-width: 2px;
+    background: rgb(255 255 255 / 0.06);
+    color: var(--text);
+  }
+  .field {
+    width: 100%;
+    background: rgb(0 0 0 / 0.35);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 0.75rem 0.9rem;
+    color: var(--text);
+    font-size: 0.95rem;
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+  .field::placeholder {
+    color: color-mix(in oklab, var(--muted) 70%, transparent);
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--world-accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--world-accent) 25%, transparent);
+  }
+  .label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .skeleton {
+    background: linear-gradient(90deg, rgb(255 255 255 / 0.05) 0%, rgb(255 255 255 / 0.13) 50%, rgb(255 255 255 / 0.05) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 8px;
+  }
+  .hud-text {
+    text-shadow:
+      0 1px 0 rgb(0 0 0 / 0.9),
+      0 0 10px rgb(0 0 0 / 0.6);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+  }
+}
+
+@keyframes grid-scroll {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 64px;
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+.caret {
+  display: inline-block;
+  width: 0.55ch;
+  margin-left: 1px;
+  background: currentColor;
+  animation: caret-blink 0.9s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .synth-grid,
+  .skeleton,
+  .caret {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
