@@ -50,6 +50,7 @@ export interface HudState {
   score: number;
   kills: number;
   weapon: string;
+  /** boss hp as a 0..1 fraction (null when no boss) */
   bossHp: number | null;
   bossName: string | null;
 }
