@@ -164,7 +164,7 @@ export class ClaudeAiService implements AiService {
     }
   }
 
-  async director(world: WorldSpec, telemetry: Telemetry, memory: PlayerMemory | null): Promise<DirectorResponse> {
+  async director(world: WorldSpec, telemetry: Telemetry, memory: PlayerMemory | null, signal?: AbortSignal): Promise<DirectorResponse> {
     const started = Date.now();
     const local = (why: string): DirectorResponse => {
       log.warn(`[ai] director fallback: ${why}`);
@@ -186,7 +186,11 @@ export class ClaudeAiService implements AiService {
             },
           ],
         },
-        { timeout: this.opts.directorTimeoutMs, maxRetries: 1, signal: AbortSignal.timeout(this.opts.directorTimeoutMs) },
+        {
+          timeout: this.opts.directorTimeoutMs,
+          maxRetries: 1,
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(this.opts.directorTimeoutMs)]) : AbortSignal.timeout(this.opts.directorTimeoutMs),
+        },
       );
       logUsage("director", msg);
       if (msg.stop_reason === "refusal" || msg.stop_reason === "max_tokens") return local(`stop_reason=${msg.stop_reason}`);

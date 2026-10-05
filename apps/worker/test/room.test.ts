@@ -165,8 +165,8 @@ describe("RoomCore", () => {
     expect(d!.some((x) => x.tool === "grant_boon")).toBe(true);
   });
 
-  it("resets when empty: timers cleared, next group gets a fresh world", async () => {
-    const { room, ai, timers } = makeRoom();
+  it("keeps the world through a short empty gap, resets after the grace period", async () => {
+    const { room, ai, timers, advance } = makeRoom();
     const a = await join(room, "a");
     const b = await join(room, "b");
     const firstWorld = a.of("welcome")[0]!.world;
@@ -175,7 +175,13 @@ describe("RoomCore", () => {
     expect(timers.active.size).toBe(2);
     room.disconnect("b");
     expect(timers.active.size).toBe(0);
-    expect(room.currentWorld).toBeNull();
+    // A solo reconnect within the grace period resumes the same run.
+    advance(5_000);
+    const back = await join(room, "b");
+    expect(back.of("welcome")[0]!.world.seed).toBe(firstWorld.seed);
+    expect(ai.generateWorld).toHaveBeenCalledTimes(1);
+    room.disconnect("b");
+    advance(61_000);
     const c = await join(room, "c");
     expect(ai.generateWorld).toHaveBeenCalledTimes(2);
     expect(c.of("welcome")[0]!.world.seed).not.toBe(firstWorld.seed);

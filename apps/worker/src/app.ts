@@ -201,7 +201,7 @@ export function createApp(deps: Deps) {
     const req = await readBody(c, DirectorRequestSchema);
     const world = sanitizeWorldSpec(req.world) ?? req.world;
     const mem = await tryLoadMemory(c);
-    const res = await ai.director(world, req.telemetry, mem);
+    const res = await ai.director(world, req.telemetry, mem, c.req.raw.signal);
     const ok = DirectorResponseSchema.safeParse(res);
     if (ok.success) return c.json(ok.data);
     log.error("[api] director response failed schema; serving local director");

@@ -38,6 +38,8 @@ export interface RoomDeps {
   maxPlayers?: number;
   broadcastMs?: number;
   directorMs?: number;
+  /** How long an empty room keeps its world, so a solo player's reconnect resumes the same run. */
+  resetGraceMs?: number;
   worldTimeoutMs?: number;
 }
 
@@ -74,6 +76,7 @@ export class RoomCore {
   private directorBusy = false;
   private dirty = false;
   private lastEmote = new Map<string, number>();
+  private emptySince: number | null = null;
   private broadcastTimer: unknown = null;
   private directorTimer: unknown = null;
 
@@ -128,6 +131,10 @@ export class RoomCore {
 
   connect(conn: RoomConn) {
     if (!this.valid) return this.reject(conn, "invalid room id");
+    if (this.members.size === 0 && this.emptySince !== null) {
+      if (this.now() - this.emptySince >= (this.deps.resetGraceMs ?? 60_000)) this.reset();
+      this.emptySince = null;
+    }
     // Same id again (partysocket reuses its id on reconnect): the new socket replaces the old,
     // which may not have been reported closed yet. Its late close/messages are ignored below.
     const stale = this.members.get(conn.id);
@@ -155,14 +162,19 @@ export class RoomCore {
     if (!m || (conn && m.conn !== conn)) return;
     this.members.delete(id);
     this.lastEmote.delete(id);
-    if (this.members.size === 0) return this.reset();
+    if (this.members.size === 0) {
+      // Keep the world for a grace period (network blips); the next connect after it resets.
+      this.emptySince = this.now();
+      this.stopTimers();
+      return;
+    }
     if (m.joined) {
       this.broadcast({ type: "left", id });
       this.dirty = true;
     }
   }
 
-  /** Empty room: forget everything so the next group gets a fresh world. */
+  /** Room stayed empty past the grace period: forget everything so the next group gets a fresh world. */
   private reset() {
     this.generation++;
     this.world = null;
