@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bimpee-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Shared-world rooms: one Durable Object per room id (partyserver).
+  // Reached at /parties/world-room/:roomId (kebab-case of the binding name).
+  "durable_objects": {
+    "bindings": [{ "name": "WorldRoom", "class_name": "WorldRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorldRoom"] }],
+
+  // Per-user limit on Claude-backed routes. Remove this block to fall back to
+  // the in-isolate limiter (best effort only).
+  "ratelimits": [
+    { "name": "AI_LIMITER", "namespace_id": "4201", "simple": { "limit": 30, "period": 60 } }
+  ],
+
+  // Non-secret configuration. Secrets (ANTHROPIC_API_KEY, SUPABASE_URL,
+  // SUPABASE_SERVICE_ROLE_KEY) go in `wrangler secret put` / .dev.vars.
+  "vars": {
+    "WORLD_MODEL": "claude-opus-5-5",
+    "DIRECTOR_MODEL": "claude-opus-5-5",
+    "NARRATOR_MODEL": "claude-opus-5-5",
+    "ALLOWED_ORIGINS": "",
+    "ENVIRONMENT": "production",
+    "LOG_LEVEL": "info"
+  }
+}

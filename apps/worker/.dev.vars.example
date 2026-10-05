@@ -1,0 +1,19 @@
+# Copy to .dev.vars for `wrangler dev`. Every value is optional:
+# with nothing set the worker runs in mock mode (no Claude, in-memory storage,
+# guest auth via the x-bimpee-guest header).
+
+ENVIRONMENT=development
+LOG_LEVEL=debug
+
+# Claude (enables real world building, director, narrator, reflections)
+# ANTHROPIC_API_KEY=sk-ant-...
+# WORLD_MODEL=claude-opus-5-5
+# DIRECTOR_MODEL=claude-opus-5-5
+# NARRATOR_MODEL=claude-opus-5-5
+
+# Supabase (enables persistent memory, leaderboard and real auth; guest header is then rejected)
+# SUPABASE_URL=https://<project>.supabase.co
+# SUPABASE_SERVICE_ROLE_KEY=eyJ...
+
+# Comma-separated extra CORS origins (production web origin goes here)
+# ALLOWED_ORIGINS=https://bimpee.example.com
