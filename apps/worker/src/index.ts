@@ -13,11 +13,15 @@ export default {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/parties/")) {
       const res = await routePartykitRequest(request, env, {
-        onBeforeConnect: (req, lobby) => {
+        onBeforeConnect: async (req, lobby) => {
           if (!ROOM_ID_RE.test(lobby.name)) return new Response("invalid room id", { status: 400 });
+          const deps = getDeps(env);
           // Browsers always send Origin on websocket upgrades; refuse foreign sites.
           const origin = req.headers.get("origin");
-          if (origin && !isOriginAllowed(getDeps(env).config, origin)) return new Response("origin not allowed", { status: 403 });
+          if (origin && !isOriginAllowed(deps.config, origin)) return new Response("origin not allowed", { status: 403 });
+          // Rooms are unauthenticated and a fresh room id costs a world generation: cap connects per client IP.
+          const ip = req.headers.get("cf-connecting-ip");
+          if (ip && deps.limiter && !(await deps.limiter.limit(`ws:${ip}`))) return new Response("too many connections, slow down", { status: 429 });
         },
         onBeforeRequest: () => new Response("websocket only", { status: 426 }),
       });

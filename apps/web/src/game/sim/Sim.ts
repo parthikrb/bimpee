@@ -1267,6 +1267,8 @@ export class Sim {
     for (let i = 0; i < 12; i++) this.dropGem(e.x, e.y, 5, 300);
     this.event("boss_defeated", `${name} defeated`);
     this.out.emit("banner", { text: `${name} has fallen!`, tone: "boon" });
+    // A bullet still in flight can finish the boss after the player died: that run stays a death.
+    if (this.ended) return;
     this.event("victory", `Victory in ${this.world.name}`);
     this.endRun("victory", 2.6);
   }

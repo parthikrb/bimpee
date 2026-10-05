@@ -128,6 +128,18 @@ export class RoomCore {
 
   connect(conn: RoomConn) {
     if (!this.valid) return this.reject(conn, "invalid room id");
+    // Same id again (partysocket reuses its id on reconnect): the new socket replaces the old,
+    // which may not have been reported closed yet. Its late close/messages are ignored below.
+    const stale = this.members.get(conn.id);
+    if (stale && stale.conn !== conn) {
+      this.members.delete(conn.id);
+      try {
+        stale.conn.close(1000, "replaced by a new connection");
+      } catch {
+        /* already closed */
+      }
+      if (stale.joined) this.dirty = true;
+    }
     if (this.members.size >= this.maxPlayers) return this.reject(conn, `room is full (max ${this.maxPlayers} players)`);
     this.members.set(conn.id, {
       conn,
@@ -137,9 +149,10 @@ export class RoomCore {
     });
   }
 
-  disconnect(id: string) {
+  /** `conn`, when given, must be the member's current socket (a replaced socket's close is ignored). */
+  disconnect(id: string, conn?: RoomConn) {
     const m = this.members.get(id);
-    if (!m) return;
+    if (!m || (conn && m.conn !== conn)) return;
     this.members.delete(id);
     this.lastEmote.delete(id);
     if (this.members.size === 0) return this.reset();
@@ -188,9 +201,9 @@ export class RoomCore {
     this.broadcast({ type: "players", players: this.joinedPlayers() });
   }
 
-  async message(id: string, raw: string | null) {
+  async message(id: string, raw: string | null, conn?: RoomConn) {
     const m = this.members.get(id);
-    if (!m) return;
+    if (!m || (conn && m.conn !== conn)) return;
     if (raw === null || raw.length > MAX_MESSAGE_BYTES) return this.send(m.conn, { type: "error", message: "message too large or not text" });
     let json: unknown;
     try {

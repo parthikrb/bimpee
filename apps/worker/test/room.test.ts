@@ -202,4 +202,23 @@ describe("RoomCore", () => {
     expect(c.of("welcome")).toHaveLength(0);
     expect(room.timersRunning).toBe(false);
   });
+  it("a reconnect with the same id replaces the old socket; the old socket's late close/messages are ignored", async () => {
+    const { room, timers } = makeRoom();
+    const b = await join(room, "b");
+    const old = await join(room, "a");
+    const fresh = new FakeConn("a");
+    room.connect(fresh);
+    expect(old.closed).not.toBeNull();
+    await room.message("a", JSON.stringify({ type: "join", name: "A2" }), fresh);
+    expect(fresh.of("welcome")).toHaveLength(1);
+    // The stale socket's close arrives late: it must not evict the new member.
+    room.disconnect("a", old);
+    await room.message("a", JSON.stringify({ type: "state", x: 99, y: 99, hp: 1, score: 1, alive: true }), old);
+    expect(room.size).toBe(2);
+    expect(b.of("left")).toHaveLength(0);
+    timers.fire(100);
+    expect(b.of("players").at(-1)!.players.find((p) => p.id === "a")).toMatchObject({ name: "A2", x: 0, y: 0 });
+    room.disconnect("a", fresh);
+    expect(room.size).toBe(1);
+  });
 });

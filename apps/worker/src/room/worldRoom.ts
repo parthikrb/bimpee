@@ -28,15 +28,15 @@ export class WorldRoom extends Server<Env> {
   }
 
   override async onMessage(connection: Connection, message: WSMessage) {
-    await this.getCore().message(connection.id, typeof message === "string" ? message : null);
+    await this.getCore().message(connection.id, typeof message === "string" ? message : null, connection);
   }
 
   override onClose(connection: Connection) {
-    this.getCore().disconnect(connection.id);
+    this.getCore().disconnect(connection.id, connection);
   }
 
   override onError(connection: Connection, error: unknown) {
     console.error(`[room] connection error: ${error instanceof Error ? error.message : String(error)}`);
-    this.getCore().disconnect(connection.id);
+    this.getCore().disconnect(connection.id, connection);
   }
 }

@@ -146,6 +146,20 @@ describe("guest (mock) mode", () => {
     expect((await req("/api/leaderboard?scope=weekly", {}, {})).status).toBe(400);
   });
 
+  it("POST /api/runs bounds client-reported text and numbers before storing them", async () => {
+    const { req } = setup();
+    const res = await req("/api/runs", {
+      method: "POST",
+      json: report({ runId: "run_bounded", score: 9e15, worldName: `<b>${"W".repeat(5000)}`}),
+    });
+    expect(res.status).toBe(200);
+    expect(RunResultSchema.parse(await res.json()).bestScore).toBe(2_147_483_647);
+    const lb = LeaderboardResponseSchema.parse(await (await req("/api/leaderboard?scope=all", {}, {})).json());
+    expect(lb.entries[0]!.worldName.length).toBeLessThanOrEqual(60);
+    expect(lb.entries[0]!.worldName).not.toContain("<");
+    expect((await req("/api/runs", { method: "POST", json: report({ runId: "r".repeat(65) }) })).status).toBe(400);
+  });
+
   it("rejects oversized bodies", async () => {
     const { req } = setup();
     const res = await req("/api/narrate", { method: "POST", body: JSON.stringify({ pad: "x".repeat(64 * 1024) }) });

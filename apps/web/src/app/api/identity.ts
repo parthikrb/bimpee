@@ -20,7 +20,8 @@ export function setAccessTokenProvider(fn: (() => Promise<string | null>) | null
 
 export function guestId(): string {
   let id = readString(GUEST_KEY);
-  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
+  // Same rule as the worker's GuestAuth: anything else would 401 on every request.
+  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     id = uuid();
     writeString(GUEST_KEY, id);
   }

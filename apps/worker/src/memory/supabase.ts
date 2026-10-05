@@ -9,6 +9,7 @@ import {
   type RunReport,
 } from "@bimpee/shared";
 import { log } from "../config";
+import { sanitizeDisplayName } from "../ai/untrusted";
 import { LEADERBOARD_LIMIT, startOfUtcDay, type LeaderboardScope, type MemoryRepo } from "./types";
 
 export function createServiceClient(url: string, serviceRoleKey: string): SupabaseClient {
@@ -112,7 +113,8 @@ export class SupabaseMemoryRepo implements MemoryRepo {
     const out: LeaderboardEntry[] = [];
     for (const r of data ?? []) {
       const p = LeaderboardEntrySchema.safeParse({
-        displayName: r.display_name,
+        // profiles.display_name can come straight from sign-up metadata (handle_new_user), unsanitized.
+        displayName: sanitizeDisplayName(String(r.display_name ?? "")) ?? "Wanderer",
         score: r.score,
         worldName: r.world_name,
         outcome: r.outcome,

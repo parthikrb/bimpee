@@ -208,6 +208,24 @@ describe("Sim headless run", () => {
     expect(rec.runEnd[0]!.killedBy).toBe("Test Spike");
   });
 
+  it("a boss killed after the player died (bullets in flight) does not emit victory", () => {
+    const sim = new Sim({ world: makeWorld(77), runId: "dv", players: 1, playerName: "p", rngSeed: 3 });
+    const rec = record(sim);
+    sim.step(DT, botInput(sim, 0));
+    sim.applyDirectives([{ tool: "spawn_boss", announce: "Here it comes" }]);
+    const boss = sim.boss!;
+    sim.player.iframes = 0;
+    sim.hurtPlayer(1e6, "Test Spike");
+    for (let i = 0; i < 400 && sim.boss; i++) sim.damageEnemy(boss.e, boss.e.maxHp / 50, false, 0, 0, true);
+    for (let f = 0; f < 60 * 4; f++) sim.step(DT, botInput(sim, f));
+    sim.quit();
+    const kinds = rec.events.map((e) => e.kind);
+    expect(kinds).toContain("death");
+    expect(kinds).not.toContain("victory");
+    expect(rec.runEnd).toHaveLength(1);
+    expect(rec.runEnd[0]!.outcome).toBe("death");
+  });
+
   it("applies every directive type and reports invalid ones", () => {
     const sim = new Sim({ world: makeWorld(31), runId: "dir", players: 1, playerName: "p", rngSeed: 3 });
     sim.invulnerable = true;

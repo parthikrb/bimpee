@@ -180,7 +180,7 @@ function StatsGrid({ report, reflection }: { report: RunReport; reflection: Refl
               {newBest && <span className="text-sun">new personal best!</span>}
               {reflection.rank !== null && (
                 <span className="text-accent-text">
-                  <Trophy className="mr-0.5 inline size-3" aria-hidden="true" />#{reflection.rank} today
+                  <Trophy className="mr-0.5 inline size-3" aria-hidden="true" />#{reflection.rank} all-time
                 </span>
               )}
             </>

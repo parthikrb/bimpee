@@ -19,10 +19,11 @@ import {
   type HealthResponse,
   type NarrateChunk,
   type PlayerMemory,
+  type RunReport,
   type RunResult,
 } from "@bimpee/shared";
 import type { AiService } from "./ai/types";
-import { sanitizeDisplayName } from "./ai/untrusted";
+import { cleanText, sanitizeDisplayName } from "./ai/untrusted";
 import { GUEST_HEADER, type AuthService } from "./auth";
 import { errMsg, isOriginAllowed, log, type Config } from "./config";
 import type { Limiter } from "./limiter";
@@ -76,6 +77,27 @@ function checked<S extends z.ZodType>(schema: S, value: z.infer<S>, what: string
     throw new HttpError(500, "internal error");
   }
   return p.data;
+}
+
+const INT32_MAX = 2_147_483_647;
+
+/**
+ * Bounds a client-reported run before it is stored: free text ends up on the
+ * public leaderboard and in memory, and score/kills go into int4 columns.
+ */
+function boundReport(r: RunReport): RunReport {
+  if (r.runId.length < 1 || r.runId.length > 64) throw new HttpError(400, "invalid request: runId must be 1-64 chars");
+  return {
+    ...r,
+    worldName: cleanText(r.worldName, 60) || "Unknown world",
+    biome: cleanText(r.biome, 32) || "unknown",
+    killedBy: r.killedBy ? cleanText(r.killedBy, 80) || null : null,
+    highlights: r.highlights.map((h) => cleanText(h, 200)).filter(Boolean),
+    directivesUsed: r.directivesUsed.map((d) => cleanText(d, 32)),
+    score: Math.min(r.score, INT32_MAX),
+    kills: Math.min(r.kills, INT32_MAX),
+    level: Math.min(r.level, INT32_MAX),
+  };
 }
 
 export function createApp(deps: Deps) {
@@ -211,7 +233,7 @@ export function createApp(deps: Deps) {
   });
 
   app.post("/api/runs", requireAuth, rateLimit, async (c) => {
-    const report = await readBody(c, RunRequestSchema);
+    const report = boundReport(await readBody(c, RunRequestSchema));
     const userId = c.get("userId");
     if (await memory.hasRun(userId, report.runId)) throw new HttpError(409, "run already recorded");
     const current = await loadMemory(c);
