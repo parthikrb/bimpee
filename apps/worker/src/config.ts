@@ -11,6 +11,15 @@ export interface Env {
   LOG_LEVEL?: string;
   AI_LIMITER?: RateLimit;
   WorldRoom: DurableObjectNamespace;
+  /** Bimpee City: R2 bucket for generated landmark models (optional; in-memory in dev when absent). */
+  MODELS?: R2Bucket;
+  /** Bimpee City: text-to-3D provider ("meshy" | "disabled", default disabled). */
+  TEXT_TO_3D_PROVIDER?: string;
+  MESHY_API_KEY?: string;
+  /** New landmark generations per user per UTC day (default 5). */
+  LANDMARK_USER_DAILY_LIMIT?: string;
+  /** New landmark generations across all users per UTC day (default 200). */
+  LANDMARK_GLOBAL_DAILY_LIMIT?: string;
 }
 
 export const DEFAULT_MODEL = "claude-opus-5-5";
@@ -29,7 +38,21 @@ export interface Config {
   dev: boolean;
   /** Max accepted request body in bytes. */
   maxBodyBytes: number;
+  /** Max body for PUT /api/city/saves/:id (1.4 MiB: a 1.4M-char state plus the spec). */
+  maxSaveBytes: number;
+  landmarks: LandmarkConfig;
 }
+
+export interface LandmarkConfig {
+  provider: "meshy" | "disabled";
+  userDailyLimit: number;
+  globalDailyLimit: number;
+}
+
+const intVar = (v: string | undefined, def: number, lo: number, hi: number) => {
+  const n = Number.parseInt((v ?? "").trim(), 10);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def;
+};
 
 const DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"];
 
@@ -51,6 +74,12 @@ export function loadConfig(env: Partial<Env>): Config {
     allowedOrigins: [...new Set([...listed, ...(dev ? DEV_ORIGINS : [])])],
     dev,
     maxBodyBytes: 32 * 1024,
+    maxSaveBytes: Math.floor(1.4 * 1024 * 1024),
+    landmarks: {
+      provider: (env.TEXT_TO_3D_PROVIDER ?? "").trim().toLowerCase() === "meshy" ? "meshy" : "disabled",
+      userDailyLimit: intVar(env.LANDMARK_USER_DAILY_LIMIT, 5, 0, 100),
+      globalDailyLimit: intVar(env.LANDMARK_GLOBAL_DAILY_LIMIT, 200, 0, 100_000),
+    },
   };
 }
 

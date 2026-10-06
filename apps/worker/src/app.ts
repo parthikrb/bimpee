@@ -1,8 +1,7 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
-import type { z } from "zod";
 import {
   DirectorRequestSchema,
   DirectorResponseSchema,
@@ -28,6 +27,13 @@ import { GUEST_HEADER, type AuthService } from "./auth";
 import { errMsg, isOriginAllowed, log, type Config } from "./config";
 import type { Limiter } from "./limiter";
 import type { MemoryRepo } from "./memory/types";
+import type { CityAiService } from "./ai/cityTypes";
+import { MockCityAiService } from "./ai/cityMock";
+import { MemoryBlobStore } from "./city/blobs";
+import { LandmarkService, repoQuota } from "./city/landmarks";
+import { SAVE_PATH_RE, mountCityRoutes } from "./city/routes";
+import { DisabledProvider } from "./city/textTo3d";
+import { HttpError, INT32_MAX, checked, readBody, type AppEnv, type Ctx } from "./http";
 
 export interface Deps {
   ai: AiService;
@@ -35,51 +41,24 @@ export interface Deps {
   auth: AuthService;
   limiter?: Limiter;
   config: Config;
+  /** Bimpee City AI (defaults to the keyless mock). */
+  cityAi?: CityAiService;
+  /** Bimpee City landmark models (defaults to a disabled provider with in-memory storage in dev). */
+  landmarks?: LandmarkService;
 }
 
-type AppEnv = { Variables: { userId: string } };
-type Ctx = Context<AppEnv>;
+/** Default landmark service: provider disabled; in-memory blobs only in dev. */
+export function defaultLandmarks(memory: MemoryRepo, config: Config): LandmarkService {
+  return new LandmarkService({
+    provider: new DisabledProvider(),
+    meta: memory,
+    blobs: config.dev ? new MemoryBlobStore() : null,
+    consumeQuota: repoQuota(memory, config.landmarks.userDailyLimit),
+    globalDailyLimit: config.landmarks.globalDailyLimit,
+  });
+}
 
 export const NAME_HEADER = "x-bimpee-name";
-
-class HttpError extends Error {
-  constructor(
-    readonly status: 400 | 401 | 404 | 409 | 413 | 429 | 500,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-async function readBody<S extends z.ZodType>(c: Ctx, schema: S): Promise<z.infer<S>> {
-  let json: unknown;
-  try {
-    json = await c.req.json();
-  } catch {
-    throw new HttpError(400, "body must be valid JSON");
-  }
-  const p = schema.safeParse(json);
-  if (!p.success) {
-    const issues = p.error.issues
-      .slice(0, 5)
-      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-      .join("; ");
-    throw new HttpError(400, `invalid request: ${issues}`);
-  }
-  return p.data;
-}
-
-/** Validate our own responses in the hot path: a contract drift is a bug we want in the logs, not on the client. */
-function checked<S extends z.ZodType>(schema: S, value: z.infer<S>, what: string): z.infer<S> {
-  const p = schema.safeParse(value);
-  if (!p.success) {
-    log.error(`[api] ${what} response failed its schema: ${p.error.issues[0]?.message ?? "?"}`);
-    throw new HttpError(500, "internal error");
-  }
-  return p.data;
-}
-
-const INT32_MAX = 2_147_483_647;
 
 /**
  * Bounds a client-reported run before it is stored: free text ends up on the
@@ -108,19 +87,17 @@ export function createApp(deps: Deps) {
     "/api/*",
     cors({
       origin: (origin) => (isOriginAllowed(config, origin) ? origin : null),
-      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization", GUEST_HEADER, NAME_HEADER],
       maxAge: 600,
     }),
   );
 
-  app.use(
-    "/api/*",
-    bodyLimit({
-      maxSize: config.maxBodyBytes,
-      onError: (c) => c.json({ error: "request body too large" }, 413),
-    }),
-  );
+  // Small bodies everywhere, except city saves (PUT /api/city/saves/:id, ~1.4 MB).
+  const onTooLarge = (c: Ctx) => c.json({ error: "request body too large" }, 413);
+  const smallBody = bodyLimit({ maxSize: config.maxBodyBytes, onError: onTooLarge });
+  const saveBody = bodyLimit({ maxSize: config.maxSaveBytes, onError: onTooLarge });
+  app.use("/api/*", (c, next) => (c.req.method === "PUT" && SAVE_PATH_RE.test(c.req.path) ? saveBody(c, next) : smallBody(c, next)));
 
   app.onError((err, c) => {
     if (err instanceof HttpError) return c.json({ error: err.message }, err.status);
@@ -136,12 +113,15 @@ export function createApp(deps: Deps) {
     await next();
   };
 
-  const rateLimit = async (c: Ctx, next: () => Promise<void>) => {
-    if (limiter && !(await limiter.limit(`ai:${c.get("userId")}`))) {
-      return c.json({ error: "rate limited: too many AI requests, slow down" }, 429);
-    }
-    await next();
-  };
+  const limitFor =
+    (prefix: string, message = "rate limited: too many AI requests, slow down") =>
+    async (c: Ctx, next: () => Promise<void>) => {
+      if (limiter && !(await limiter.limit(`${prefix}:${c.get("userId")}`))) {
+        return c.json({ error: message }, 429);
+      }
+      await next();
+    };
+  const rateLimit = limitFor("ai");
 
   /** Loads memory and applies a display-name override from the x-bimpee-name header. */
   const loadMemory = async (c: Ctx): Promise<PlayerMemory> => {
@@ -248,6 +228,15 @@ export function createApp(deps: Deps) {
     });
     const body: RunResult = { summary: reflection.summary, epitaph: reflection.epitaph, bestScore: merged.bestScore, rank };
     return c.json(checked(RunResultSchema, body, "runs"));
+  });
+
+  mountCityRoutes(app, {
+    cityAi: deps.cityAi ?? new MockCityAiService(config.models),
+    memory,
+    landmarks: deps.landmarks ?? defaultLandmarks(memory, config),
+    requireAuth,
+    limit: limitFor,
+    nameHeader: NAME_HEADER,
   });
 
   return app;

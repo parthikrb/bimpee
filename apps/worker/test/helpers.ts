@@ -103,3 +103,37 @@ export async function* textStream(parts: string[]): AsyncIterable<Anthropic.Beta
     yield { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } } as Anthropic.Beta.BetaRawMessageStreamEvent;
   }
 }
+
+// ---- Bimpee City fixtures -----------------------------------------------------
+
+import { generateFallbackCity, type CityTelemetry } from "@bimpee/shared/city";
+
+export const city = generateFallbackCity(4242);
+
+export const cityTelemetry = (over: Partial<CityTelemetry> = {}): CityTelemetry => ({
+  cityId: "city-1",
+  day: 12,
+  hour: 10,
+  population: 1200,
+  funds: 20_000,
+  incomePerDay: 900,
+  expensesPerDay: 700,
+  taxRate: 0.09,
+  happiness: 0.6,
+  demand: { residential: 0.3, commercial: 0.1, industrial: -0.2 },
+  power: { supply: 500, demand: 400, greenShare: 0.3 },
+  water: { supply: 400, demand: 300 },
+  trafficCongestion: 0.2,
+  unemployment: 0.05,
+  pollution: 0.3,
+  buildings: { residential: 40, road: 120 },
+  damagedBuildings: 0,
+  activeDisasters: [],
+  recentPlayerActions: ["zoned 12 industrial tiles near the river"],
+  recentEvents: [],
+  recentDirectives: [],
+  councilApproval: {},
+  openMotions: 0,
+  goals: [],
+  ...over,
+});

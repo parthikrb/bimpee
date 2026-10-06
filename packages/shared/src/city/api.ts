@@ -14,7 +14,7 @@ import { CitySpecSchema } from "./spec";
  *   GET  /api/city/memory                        -> CityMemory
  *   POST /api/city/session   CitySessionReport   -> { summary: string }     (reflection merged into CityMemory)
  *   GET  /api/city/saves                         -> { saves: CitySaveMeta[] }
- *   PUT  /api/city/saves/:id CitySaveBody        -> CitySaveMeta            (<= 1 MB, base64 sim state)
+ *   PUT  /api/city/saves/:id CitySaveBody        -> CitySaveMeta            (<= 1.4 MB, base64 sim state)
  *   GET  /api/city/saves/:id                     -> CitySaveBody
  *   POST /api/city/landmark  LandmarkModelRequest -> LandmarkModelResponse  (text-to-3D; cached by prompt hash)
  *   GET  /api/city/models/:hash                  -> model/gltf-binary       (cached generated model)

@@ -19,14 +19,24 @@
     { "name": "AI_LIMITER", "namespace_id": "4201", "simple": { "limit": 30, "period": 60 } }
   ],
 
+  // Bimpee City landmark models (optional). Generated GLBs (and, without
+  // Supabase, their job metadata) are stored here. Without this binding,
+  // `wrangler dev` keeps models in memory and production disables generation.
+  // Create the bucket first: npx wrangler r2 bucket create bimpee-models
+  // "r2_buckets": [{ "binding": "MODELS", "bucket_name": "bimpee-models" }],
+
   // Non-secret configuration. Secrets (ANTHROPIC_API_KEY, SUPABASE_URL,
-  // SUPABASE_SERVICE_ROLE_KEY) go in `wrangler secret put` / .dev.vars.
+  // SUPABASE_SERVICE_ROLE_KEY, MESHY_API_KEY) go in `wrangler secret put` / .dev.vars.
   "vars": {
     "WORLD_MODEL": "claude-opus-5-5",
     "DIRECTOR_MODEL": "claude-opus-5-5",
     "NARRATOR_MODEL": "claude-opus-5-5",
     "ALLOWED_ORIGINS": "",
     "ENVIRONMENT": "production",
-    "LOG_LEVEL": "info"
+    "LOG_LEVEL": "info",
+    // "meshy" | "disabled". Meshy is not implemented yet (see src/city/textTo3d.ts).
+    "TEXT_TO_3D_PROVIDER": "disabled",
+    "LANDMARK_USER_DAILY_LIMIT": "5",
+    "LANDMARK_GLOBAL_DAILY_LIMIT": "200"
   }
 }

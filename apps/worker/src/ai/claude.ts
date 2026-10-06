@@ -32,8 +32,8 @@ import {
 import { toApiSchema } from "./schema";
 import type { AiService, ReflectionResult, WorldInput } from "./types";
 
-type CreateParams = Anthropic.Beta.MessageCreateParamsNonStreaming;
-type StreamParams = Parameters<Anthropic["beta"]["messages"]["stream"]>[0];
+export type CreateParams = Anthropic.Beta.MessageCreateParamsNonStreaming;
+export type StreamParams = Parameters<Anthropic["beta"]["messages"]["stream"]>[0];
 type RequestOptions = NonNullable<Parameters<Anthropic["beta"]["messages"]["create"]>[1]>;
 
 /**
@@ -63,7 +63,7 @@ export const DEFAULT_CLAUDE_OPTIONS: ClaudeOptions = {
   reflectionTimeoutMs: 15_000,
 };
 
-type Effort = "low" | "medium" | "high";
+export type Effort = "low" | "medium" | "high";
 
 /**
  * Model-specific request knobs:
@@ -83,23 +83,23 @@ export function modelParams(model: string, effort: Effort, format?: Anthropic.Be
   };
 }
 
-const cached = (text: string): Anthropic.Beta.BetaTextBlockParam => ({ type: "text", text, cache_control: { type: "ephemeral" } });
+export const cached = (text: string): Anthropic.Beta.BetaTextBlockParam => ({ type: "text", text, cache_control: { type: "ephemeral" } });
 
-function textOf(msg: Anthropic.Beta.BetaMessage): string {
+export function textOf(msg: Anthropic.Beta.BetaMessage): string {
   return msg.content
     .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
     .map((b) => b.text)
     .join("");
 }
 
-function logUsage(kind: string, msg: Anthropic.Beta.BetaMessage) {
+export function logUsage(kind: string, msg: Anthropic.Beta.BetaMessage) {
   const u = msg.usage;
   log.debug(
     `[ai] ${kind} model=${msg.model} stop=${msg.stop_reason} in=${u.input_tokens} out=${u.output_tokens} cache_read=${u.cache_read_input_tokens ?? 0} cache_write=${u.cache_creation_input_tokens ?? 0}`,
   );
 }
 
-function describeError(e: unknown): string {
+export function describeError(e: unknown): string {
   if (e instanceof Anthropic.APIUserAbortError) return "timeout/aborted";
   if (e instanceof Anthropic.APIConnectionTimeoutError) return "timeout";
   if (e instanceof Anthropic.RateLimitError) return "rate limited (429)";

@@ -17,3 +17,11 @@ LOG_LEVEL=debug
 
 # Comma-separated extra CORS origins (production web origin goes here)
 # ALLOWED_ORIGINS=https://bimpee.example.com
+
+# Bimpee City landmark models (text-to-3D). Default: disabled -> landmarks use
+# their fallback shapes. "meshy" is reserved but not implemented yet.
+# TEXT_TO_3D_PROVIDER=disabled
+# MESHY_API_KEY=msy_...
+# LANDMARK_USER_DAILY_LIMIT=5
+# LANDMARK_GLOBAL_DAILY_LIMIT=200
+# (R2 bucket binding MODELS is configured in wrangler.jsonc, not here.)

@@ -1,5 +1,7 @@
 import { emptyMemory, type LeaderboardEntry, type PlayerMemory, type RunReflection, type RunReport } from "@bimpee/shared";
-import { LEADERBOARD_LIMIT, startOfUtcDay, type LeaderboardScope, type MemoryRepo } from "./types";
+import type { CityMemory, CitySaveBody, CitySaveMeta } from "@bimpee/shared/city";
+import { addReported, boundCityMemory, parseCityMemory, parseCityMeta } from "./city";
+import { LEADERBOARD_LIMIT, MAX_CITY_SAVES, startOfUtcDay, type GameKey, type LandmarkRecord, type LeaderboardScope, type MemoryRepo } from "./types";
 
 interface StoredRun {
   userId: string;
@@ -23,6 +25,11 @@ export class InMemoryRepo implements MemoryRepo {
   private runs: StoredRun[] = [];
   private static readonly MAX_RUNS = 5_000;
   private static readonly MAX_USERS = 5_000;
+  private games = new Map<string, unknown>();
+  private saves = new Map<string, { meta: CitySaveMeta; body: CitySaveBody }>();
+  private landmarks = new Map<string, LandmarkRecord>();
+  private static readonly MAX_SAVES_TOTAL = 40; // saves can be ~1.4 MB each; isolates have 128 MB
+  private static readonly MAX_LANDMARKS = 2_000;
 
   constructor(private readonly now: () => Date = () => new Date()) {}
 
@@ -95,4 +102,73 @@ export class InMemoryRepo implements MemoryRepo {
     if (score <= 0) return null;
     return this.runs.filter((r) => r.score > score).length + 1;
   }
+
+  // ---- city -----------------------------------------------------------------
+
+  async getGameMemory(userId: string, game: GameKey): Promise<unknown | null> {
+    const v = this.games.get(`${userId}:${game}`);
+    return v === undefined ? null : structuredClone(v);
+  }
+
+  async saveGameMemory(userId: string, game: GameKey, value: unknown): Promise<void> {
+    const key = `${userId}:${game}`;
+    if (!this.games.has(key) && this.games.size >= InMemoryRepo.MAX_USERS * 2) evictOldest(this.games);
+    this.games.set(key, structuredClone(value));
+  }
+
+  async getCityMemory(userId: string): Promise<CityMemory> {
+    return parseCityMemory(await this.getGameMemory(userId, "city"), userId, this.names.get(userId) ?? null);
+  }
+
+  async saveCityMemory(memory: CityMemory): Promise<void> {
+    await this.saveGameMemory(memory.userId, "city", boundCityMemory(memory));
+  }
+
+  async markCityReported(userId: string, cityId: string): Promise<boolean> {
+    const { meta, first } = addReported(parseCityMeta(await this.getGameMemory(userId, "city_meta")), cityId);
+    if (first) await this.saveGameMemory(userId, "city_meta", meta);
+    return first;
+  }
+
+  async listCitySaves(userId: string): Promise<CitySaveMeta[]> {
+    return [...this.saves.entries()]
+      .filter(([k]) => k.startsWith(`${userId}:`))
+      .map(([, v]) => ({ ...v.meta }))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  async putCitySave(userId: string, id: string, cityName: string, body: CitySaveBody): Promise<CitySaveMeta | "limit"> {
+    const key = `${userId}:${id}`;
+    if (!this.saves.has(key) && (await this.listCitySaves(userId)).length >= MAX_CITY_SAVES) return "limit";
+    const meta: CitySaveMeta = { id, cityName, day: body.day, population: body.population, updatedAt: this.now().toISOString() };
+    this.saves.delete(key); // re-insert so eviction order follows recency
+    if (this.saves.size >= InMemoryRepo.MAX_SAVES_TOTAL) evictOldest(this.saves);
+    this.saves.set(key, { meta, body: structuredClone(body) });
+    return { ...meta };
+  }
+
+  async getCitySave(userId: string, id: string): Promise<CitySaveBody | null> {
+    const v = this.saves.get(`${userId}:${id}`);
+    return v ? structuredClone(v.body) : null;
+  }
+
+  async getLandmark(hash: string): Promise<LandmarkRecord | null> {
+    const r = this.landmarks.get(hash);
+    return r ? { ...r } : null;
+  }
+
+  async putLandmark(record: LandmarkRecord): Promise<void> {
+    if (!this.landmarks.has(record.hash) && this.landmarks.size >= InMemoryRepo.MAX_LANDMARKS) evictOldest(this.landmarks);
+    this.landmarks.set(record.hash, { ...record });
+  }
+
+  async countLandmarksSince(since: Date): Promise<number> {
+    const t = since.getTime();
+    return [...this.landmarks.values()].filter((r) => Date.parse(r.createdAt) >= t).length;
+  }
+}
+
+function evictOldest<K, V>(m: Map<K, V>) {
+  const oldest = m.keys().next();
+  if (!oldest.done) m.delete(oldest.value);
 }
