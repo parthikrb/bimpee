@@ -71,6 +71,7 @@ function ensureCore(): Core {
   const noise = new Tone.NoiseSynth({ noise: { type: "brown" }, envelope: { attack: 0.001, decay: 0.12, sustain: 0, release: 0.02 } }).connect(sfxBus);
   noise.volume.value = -6;
   const chime = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.25, sustain: 0.1, release: 0.4 } }).connect(sfxBus);
+  chime.maxPolyphony = 16;
   chime.volume.value = -10;
   const boom = new Tone.MembraneSynth({ pitchDecay: 0.2, octaves: 6, envelope: { attack: 0.001, decay: 0.9, sustain: 0, release: 0.3 } }).connect(sfxBus);
   boom.volume.value = -4;

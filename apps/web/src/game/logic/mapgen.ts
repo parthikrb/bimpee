@@ -2,7 +2,7 @@ import { createRng, type Rng, type WorldSpec } from "@bimpee/shared";
 
 /**
  * Deterministic tile map generation from a WorldSpec (seed + layout).
- * Pure: no Phaser. The result is a solid/open grid plus decorative pools.
+ * Pure: no rendering. The result is a solid/open grid plus decorative pools.
  *
  * Guarantees (unit tested):
  *  - same spec => same map

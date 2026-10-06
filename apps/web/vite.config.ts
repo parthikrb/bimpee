@@ -20,7 +20,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id: string) {
-          if (id.includes("node_modules/phaser")) return "phaser";
+          if (id.includes("node_modules/three") || id.includes("node_modules/postprocessing")) return "three";
           if (id.includes("node_modules/tone")) return "tone";
           return undefined;
         },

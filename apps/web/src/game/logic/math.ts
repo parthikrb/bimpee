@@ -1,4 +1,4 @@
-/** Small, allocation-free math helpers shared by the simulation and renderer. Phaser-free. */
+/** Small, allocation-free math helpers shared by the simulation and renderer. Renderer-free. */
 
 export const TAU = Math.PI * 2;
 

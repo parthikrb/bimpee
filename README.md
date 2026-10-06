@@ -12,9 +12,9 @@ A browser roguelite where **Claude designs a new world before every run** and an
 ## Architecture
 
 ```
-apps/web        Vite + React 19 + Tailwind 4 + Motion + Zustand
+apps/web        Vite + React 19 + Three.js + postprocessing + Tailwind 4 + Motion + Zustand
   src/app         shell: screens, director loop, narrator, Tone.js music, rooms, Supabase auth
-  src/game        Phaser 4 renderer + a Phaser-free simulation (headless-testable)
+  src/game        Three.js third-person 3D renderer + a renderer-free simulation (headless-testable)
 apps/worker     Cloudflare Worker (Hono) + Anthropic SDK + Supabase + partyserver Durable Object rooms
 packages/shared zod contracts used by both: WorldSpec, Directive, Telemetry, PacingController,
                 PlayerMemory, room protocol, API types, offline fallbacks
@@ -52,4 +52,4 @@ pnpm typecheck && pnpm test && pnpm build
 
 ## Controls
 
-WASD / arrows move · mouse aim + hold to fire (auto-aim after 2s idle or on touch) · Space/Shift dash · 1/2/3 pick upgrades · Esc pause · <kbd>`</kbd> director HUD. Touch: left-half joystick, tap right half to dash.
+Third-person chase camera. Click the game to lock the mouse: the mouse turns the camera and aims at the crosshair (with soft aim assist) · WASD moves relative to the camera · hold left button to fire, F toggles auto-fire · Space/Shift dash · Q/E turn the camera when the mouse isn't locked · 1/2/3 pick upgrades · Esc pause · <kbd>`</kbd> director HUD. Touch: left-half joystick, drag the right half to turn, aim and fire are automatic, dash button.

@@ -79,6 +79,21 @@ export function PlayScreen() {
   const sendEmote = useCallback((e: (typeof EMOTES)[number]) => sessionRef.current?.emote(e), []);
   const closeWheel = useCallback(() => setWheelOpen(false), []);
 
+  // Losing pointer lock mid-run (Esc, alt-tab) pauses, so one Esc both frees the mouse and opens the menu.
+  // The game releases the lock itself for upgrade offers and pauses; those cases are skipped.
+  const lockPauseAt = useRef(0);
+  useEffect(() => {
+    const onLockChange = () => {
+      if (document.pointerLockElement) return;
+      const { paused: isPaused, upgradeOffer } = runStore.getState();
+      if (isPaused || upgradeOffer) return;
+      lockPauseAt.current = performance.now();
+      pause();
+    };
+    document.addEventListener("pointerlockchange", onLockChange);
+    return () => document.removeEventListener("pointerlockchange", onLockChange);
+  }, [pause]);
+
   // Global keys. Modal overlays (upgrade picker, emote wheel) capture their own keys first.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -88,6 +103,8 @@ export function PlayScreen() {
       if (e.key === "Escape") {
         e.preventDefault();
         if (st.offer) return;
+        // Same Esc that just released pointer lock (and paused): don't immediately resume.
+        if (performance.now() - lockPauseAt.current < 400) return;
         if (st.paused) resume();
         else pause();
       } else if (e.key === "`" || e.code === "Backquote") {

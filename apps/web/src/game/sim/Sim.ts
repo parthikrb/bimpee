@@ -57,7 +57,7 @@ export interface SimConfig extends GameOptions {
 }
 
 /**
- * The whole game simulation, independent of Phaser. The Phaser scene feeds
+ * The whole game simulation, independent of any renderer. The 3D view feeds
  * it input + real dt and renders its state; tests drive it headless.
  * It owns the GameToShell bus cadence (hud/pacing/player_state/telemetry).
  */

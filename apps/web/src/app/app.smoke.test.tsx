@@ -6,7 +6,7 @@ import type { RunReport } from "@bimpee/shared";
 import { Bus, type GameHandle, type GameOptions, type GameToShell, type ShellToGame } from "../game/contract";
 
 /**
- * End-to-end-ish UI flow in jsdom with the backend offline, the Phaser game
+ * End-to-end-ish UI flow in jsdom with the backend offline, the 3D game
  * replaced by a scriptable fake, and audio stubbed.
  */
 const games: { opts: GameOptions; handle: GameHandle; destroyed: boolean; received: { k: string; p: unknown }[] }[] = [];

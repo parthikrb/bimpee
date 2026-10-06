@@ -1,7 +1,7 @@
 import type { Directive, PacingOutput, RoomPlayer, RunReport, Telemetry, WorldSpec } from "@bimpee/shared";
 
 /**
- * Contract between the React shell (apps/web/src/app) and the Phaser game
+ * Contract between the React shell (apps/web/src/app) and the 3D game
  * (apps/web/src/game). The shell owns AI calls, UI overlays, audio and
  * multiplayer; the game owns simulation and rendering. They talk only
  * through this typed bus.

@@ -173,7 +173,25 @@ const up = {
 function Reveal({ forged, mode }: { forged: ForgedWorld; mode: Mode }) {
   const { world } = forged;
   const startRef = useRef<HTMLButtonElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const [starting, setStarting] = useState(false);
+
+  // Orbiting 3D diorama of the forged world behind the reveal (three.js loads lazily).
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el) return;
+    let disposed = false;
+    let preview: { destroy(): void } | null = null;
+    import("../../game/preview")
+      .then(({ createWorldPreview }) => {
+        if (!disposed) preview = createWorldPreview(el, world);
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+      preview?.destroy();
+    };
+  }, [world]);
 
   useEffect(() => {
     startRef.current?.focus({ preventScroll: true });
@@ -192,6 +210,11 @@ function Reveal({ forged, mode }: { forged: ForgedWorld; mode: Mode }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.25 } }}
     >
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+        <div ref={previewRef} className="absolute inset-0" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[var(--ink)]/90 via-[var(--ink)]/55 to-[var(--ink)]/10" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--ink)] to-transparent" />
+      </div>
       <motion.div variants={reveal} initial="hidden" animate="show" className="flex flex-col gap-6">
         <motion.div variants={up} className="flex flex-wrap items-center gap-2">
           <SourceChip forged={forged} />
