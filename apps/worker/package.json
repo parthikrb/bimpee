@@ -14,7 +14,7 @@
     "@anthropic-ai/sdk": "^0.131.0",
     "@bimpee/shared": "workspace:*",
     "@supabase/supabase-js": "^2.117.2",
-    "hono": "^4.13.13",
+    "hono": "^4.13.16",
     "partyserver": "^0.5.10",
     "zod": "^4.6.5"
   },
